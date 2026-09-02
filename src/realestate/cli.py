@@ -123,10 +123,11 @@ def cmd_debug_source(args: argparse.Namespace) -> None:
 
 
 def cmd_fetch_url(args: argparse.Namespace) -> None:
-    """Trae el HTML crudo de una URL puntual — para inspeccionar la
-    estructura real de un sitio antes de escribir su conector. `--grep`
-    filtra sólo las líneas que contengan ese texto (útil para encontrar
-    links de navegación o patrones de precio sin volcar toda la página)."""
+    """Trae el HTML/JS crudo de una URL puntual — para inspeccionar la
+    estructura real de un sitio (o un bundle de JS minificado, que suele
+    venir en una sola línea gigante) antes de escribir su conector.
+    `--grep` busca la palabra en TODO el texto (no línea por línea) y
+    muestra un fragmento de contexto alrededor de cada ocurrencia."""
     import requests
 
     from .probe import REQUEST_HEADERS
@@ -135,10 +136,20 @@ def cmd_fetch_url(args: argparse.Namespace) -> None:
     print(f"status={response.status_code} length={len(response.content)}")
     text = response.text
     if args.grep:
-        matches = [line.strip() for line in text.splitlines() if args.grep.lower() in line.lower()]
-        print(f"{len(matches)} líneas con '{args.grep}' (mostrando hasta {args.limit}):")
-        for line in matches[: args.limit]:
-            print(line[:400])
+        target = args.grep.lower()
+        text_lower = text.lower()
+        positions = []
+        cursor = 0
+        while len(positions) < args.limit:
+            idx = text_lower.find(target, cursor)
+            if idx == -1:
+                break
+            positions.append(idx)
+            cursor = idx + len(target)
+        print(f"{len(positions)} ocurrencias de '{args.grep}' (mostrando hasta {args.limit}):")
+        for pos in positions:
+            snippet = text[max(0, pos - 80) : pos + len(args.grep) + 250].replace("\n", " ")
+            print(f"...{snippet}...")
     else:
         print(text[args.start : args.start + args.length])
 
