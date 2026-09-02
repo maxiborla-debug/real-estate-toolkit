@@ -10,6 +10,10 @@ on:
         description: "No mandar mails, sólo mostrar en los logs qué matchearía (recomendado para probar)"
         type: boolean
         default: true
+      debug_source:
+        description: "Opcional: nombre de una fuente (ej: mercadolibre) para inspeccionar sus datos crudos en vez de correr el scan normal"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -27,13 +31,17 @@ jobs:
       - name: Instalar dependencias
         run: pip install -e .
 
-      - name: Correr el scan (y mandar el mail, salvo dry-run manual)
+      - name: Correr el scan (o debug-source, o dry-run manual)
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           DRY_RUN: ${{ inputs.dry_run }}
+          DEBUG_SOURCE: ${{ inputs.debug_source }}
         run: |
-          if [ "$DRY_RUN" = "true" ]; then
+          if [ -n "$DEBUG_SOURCE" ]; then
+            echo "== Modo debug-source: $DEBUG_SOURCE (no se manda mail) =="
+            python -m realestate.cli debug-source "$DEBUG_SOURCE"
+          elif [ "$DRY_RUN" = "true" ]; then
             echo "== Modo dry-run: no se manda ningún mail =="
             python -m realestate.cli scan --dry-run
           else

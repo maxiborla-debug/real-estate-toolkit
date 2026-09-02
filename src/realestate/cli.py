@@ -73,6 +73,8 @@ def _scan_profile(
             all_properties.extend(connector.search_listings(criteria))
         except NotImplementedError as exc:
             print(f"[{profile.label}] [{source}] sin implementar todavía: {exc}")
+        except Exception as exc:  # un conector roto no debe tumbar la corrida entera
+            print(f"[{profile.label}] [{source}] ERROR durante la búsqueda, se lo salta: {exc!r}")
 
     ranked = rank_properties(all_properties, criteria)
 
@@ -94,6 +96,30 @@ def _scan_profile(
         print(f"[{profile.label}] (--dry-run) No se mandó el mail.")
     else:
         send_email(to_send, is_first_run, profile, config.sender_name, config.smtp_user, config.smtp_password)
+
+
+def cmd_debug_source(args: argparse.Namespace) -> None:
+    """Trae avisos crudos de UNA fuente y muestra cómo quedaron normalizados
+    — para verificar o ajustar el mapeo de campos de un conector contra
+    datos reales, sin arriesgar mandar ningún mail."""
+    config = load_config(args.config, args.env)
+    profile = next((p for p in config.profiles if p.operation == args.operation), None)
+    if profile is None:
+        raise SystemExit(f"No hay ningún perfil con operation='{args.operation}' en config.yaml.")
+
+    criteria = config.criteria_for(profile)
+    connector = _load_connector(args.source)
+    properties = connector.search_listings(criteria)
+
+    print(f"{len(properties)} avisos encontrados en '{args.source}' (antes de aplicar el matching).")
+    for prop in properties[: args.limit]:
+        print("-" * 60)
+        print(f"id={prop.id!r}  operation={prop.operation!r}  property_type={prop.property_type!r}")
+        print(f"price={prop.price} {prop.currency}  neighborhood={prop.neighborhood!r}")
+        print(f"ambientes={prop.ambientes}  dormitorios={prop.dormitorios}  banos={prop.banos}")
+        print(f"m2_cubiertos={prop.m2_cubiertos}  m2_totales={prop.m2_totales}  parking={prop.parking}")
+        print(f"exterior={prop.exterior}  orientacion={prop.orientacion!r}  apto_credito={prop.apto_credito}")
+        print(f"url={prop.url}")
 
 
 def cmd_scan(args: argparse.Namespace) -> None:
@@ -125,6 +151,17 @@ def build_parser() -> argparse.ArgumentParser:
     config_parser.add_argument("--config", default="config/config.yaml")
     config_parser.add_argument("--env", default=".env")
     config_parser.set_defaults(func=cmd_config_check)
+
+    debug_parser = sub.add_parser(
+        "debug-source",
+        help="Trae avisos crudos de una fuente y muestra cómo se normalizaron (no manda mail)",
+    )
+    debug_parser.add_argument("source")
+    debug_parser.add_argument("--config", default="config/config.yaml")
+    debug_parser.add_argument("--env", default=".env")
+    debug_parser.add_argument("--operation", default="venta")
+    debug_parser.add_argument("--limit", type=int, default=3)
+    debug_parser.set_defaults(func=cmd_debug_source)
 
     return parser
 
