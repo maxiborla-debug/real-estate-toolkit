@@ -4,7 +4,12 @@ on:
   schedule:
     # 17:00 hora Argentina (UTC-3, sin horario de verano) = 20:00 UTC
     - cron: "0 20 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "No mandar mails, sólo mostrar en los logs qué matchearía (recomendado para probar)"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -22,11 +27,18 @@ jobs:
       - name: Instalar dependencias
         run: pip install -e .
 
-      - name: Correr el scan y mandar el mail
+      - name: Correr el scan (y mandar el mail, salvo dry-run manual)
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-        run: python -m realestate.cli scan
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "== Modo dry-run: no se manda ningún mail =="
+            python -m realestate.cli scan --dry-run
+          else
+            python -m realestate.cli scan
+          fi
 
       - name: Guardar qué avisos ya vimos
         run: |
