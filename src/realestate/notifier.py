@@ -1,5 +1,8 @@
 """Envío del email diario con los matches nuevos, vía SMTP de Gmail.
 
+Cada perfil (compra/alquiler) manda su propio mail, con su propio asunto y
+destinatario — ver `ProfileConfig` en `config.py`.
+
 Requiere una cuenta de Gmail con verificación en 2 pasos activada y una
 "contraseña de aplicación" (no la contraseña normal de la cuenta) — ver
 docs/DESPLIEGUE.md.
@@ -10,7 +13,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from .config import EmailConfig
+from .config import ProfileConfig
 from .matching import MatchResult
 
 SMTP_HOST = "smtp.gmail.com"
@@ -24,15 +27,19 @@ def _format_property_html(result: MatchResult) -> str:
     detalles = []
     if p.ambientes is not None:
         detalles.append(f"{p.ambientes:g} amb.")
+    if p.dormitorios is not None:
+        detalles.append(f"{p.dormitorios:g} dorm.")
     if p.banos is not None:
         detalles.append(f"{p.banos:g} baño/s")
-    if p.m2_cubiertos is not None:
-        detalles.append(f"{p.m2_cubiertos:g} m²")
+    if p.m2 is not None:
+        detalles.append(f"{p.m2:g} m²")
+    if p.orientacion:
+        detalles.append(f"orientación {p.orientacion}")
     if p.antiguedad_anios is not None:
         detalles.append("a estrenar" if p.antiguedad_anios == 0 else f"{p.antiguedad_anios:g} años")
     detalle_txt = " · ".join(detalles)
 
-    extras = ", ".join(p.amenities + p.exterior) or "-"
+    extras = ", ".join(p.exterior + (["cochera"] if p.parking else [])) or "-"
 
     return f"""
     <tr>
@@ -50,11 +57,11 @@ def _format_property_html(result: MatchResult) -> str:
     """
 
 
-def build_email_html(results: list[MatchResult], is_first_run: bool) -> str:
+def build_email_html(results: list[MatchResult], is_first_run: bool, label: str) -> str:
     intro = (
-        "Primer escaneo: te mandamos todas las propiedades que matchean tus criterios."
+        f"Primer escaneo de {label.lower()}: te mandamos todas las propiedades que matchean tus criterios."
         if is_first_run
-        else "Propiedades nuevas de hoy que matchean tus criterios."
+        else f"Novedades de hoy en {label.lower()} que matchean tus criterios."
     )
     rows = "\n".join(_format_property_html(r) for r in results)
     return f"""
@@ -68,24 +75,25 @@ def build_email_html(results: list[MatchResult], is_first_run: bool) -> str:
 def send_email(
     results: list[MatchResult],
     is_first_run: bool,
-    email_config: EmailConfig,
+    profile: ProfileConfig,
+    sender_name: str,
     smtp_user: str,
     smtp_password: str,
 ) -> None:
     if not results:
         return  # nada nuevo que matchee: no se manda mail (evita spam vacío todos los días)
 
-    subject = f"{len(results)} propiedades nuevas que matchean tus criterios"
+    subject = f"[{profile.label}] {len(results)} propiedades nuevas que matchean tus criterios"
     if is_first_run:
-        subject = f"[Primer escaneo] {len(results)} propiedades encontradas"
+        subject = f"[{profile.label}] [Primer escaneo] {len(results)} propiedades encontradas"
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"{email_config.sender_name} <{smtp_user}>"
-    msg["To"] = email_config.recipient
-    msg.attach(MIMEText(build_email_html(results, is_first_run), "html", "utf-8"))
+    msg["From"] = f"{sender_name} <{smtp_user}>"
+    msg["To"] = profile.recipient
+    msg.attach(MIMEText(build_email_html(results, is_first_run, profile.label), "html", "utf-8"))
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
         server.starttls()
         server.login(smtp_user, smtp_password)
-        server.sendmail(smtp_user, [email_config.recipient], msg.as_string())
+        server.sendmail(smtp_user, [profile.recipient], msg.as_string())

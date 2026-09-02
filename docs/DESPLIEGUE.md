@@ -5,12 +5,18 @@ prendida ni una sesión de Claude abierta.
 
 ## 1. Cargar los criterios reales
 
-```bash
-cp config/config.example.yaml config/config.yaml
-```
+`config/config.yaml` ya está commiteado con tus criterios (zonas, rangos,
+perfiles de Compra/Alquiler). Antes de dejarlo corriendo en serio, revisá
+puntualmente:
 
-Editá `config/config.yaml` con tus zonas, rangos y el email destinatario, y
-**commiteálo** — no tiene credenciales, sólo tus criterios de búsqueda.
+- El `recipient` de cada perfil en `profiles` — hoy apunta a un mail de
+  prueba; cambialo cuando quieras que le llegue a otra persona.
+- Que las 12 fuentes en `sources` tengan su conector implementado (ver
+  `docs/PLATAFORMAS.md` y `docs/CONTRIBUIR.md`) — mientras no lo estén, el
+  scan simplemente las salta y sigue con el resto.
+
+Si en algún momento partís de cero, `config/config.example.yaml` es la
+plantilla genérica documentada.
 
 ## 2. Generar una contraseña de aplicación de Gmail
 
@@ -46,14 +52,19 @@ ajustar el cron a mano.
 
 ## 6. Cómo sigue funcionando día a día
 
-- Primera corrida: `data/seen.json` no existe → se manda **todo** lo que
-  matchea.
-- Corridas siguientes: sólo se manda lo que matchea Y no estaba en
-  `data/seen.json` de la corrida anterior. El workflow commitea ese archivo
-  de vuelta al repo al final de cada corrida para que la próxima lo
-  encuentre actualizado.
+- Primera corrida de cada perfil: `data/seen_venta.json` /
+  `data/seen_alquiler.json` no existen → se manda **todo** lo que matchea
+  para ese perfil.
+- Corridas siguientes: sólo se manda lo que matchea Y no estaba en el
+  `seen_<perfil>.json` de la corrida anterior. El workflow los commitea de
+  vuelta al repo al final de cada corrida para que la próxima los
+  encuentre actualizados.
+- Compra y Alquiler son independientes: si un día sólo hay novedades en uno
+  de los dos, sólo se manda ese mail.
 - Si un conector todavía no está implementado para algún portal, el scan lo
   loggea y sigue con el resto — no se cae toda la corrida por un portal
   pendiente.
-- Si no hay novedades nuevas ese día, directamente no se manda mail (no hay
-  spam de "0 resultados" todos los días).
+- Si no hay novedades nuevas ese día para un perfil, directamente no se
+  manda su mail (no hay spam de "0 resultados" todos los días).
+- La cotización del dólar se pide una vez por corrida (API pública de
+  DolarAPI); si falla, se usa `fx_fallback_ars_per_usd` de `config.yaml`.

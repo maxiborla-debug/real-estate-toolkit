@@ -3,92 +3,121 @@
 # secrets de GitHub / .env), este archivo no tiene datos sensibles y el
 # workflow de GitHub Actions lo necesita presente para poder correr el scan
 # diario sin intervención manual.
+#
+# Ver docs/CONFIGURACION.md para el detalle de cada campo.
 
-search:
-  # Qué operación buscás: "venta" o "alquiler"
-  operation: "alquiler"
+# Sitios activos. Cada uno necesita su propia implementación en
+# src/realestate/connectors/ (ver docs/PLATAFORMAS.md).
+sources:
+  - mercadolibre
+  - argenprop
+  - zonaprop
 
+sender_name: "Alertas de Propiedades"
+
+# Cotización de respaldo si la API de cotización del dólar no responde el
+# día del scan (ver src/realestate/fx.py). Se usa para comparar avisos
+# publicados en la moneda "equivocada" para un perfil (ej: un alquiler en
+# USD contra un rango en ARS). El sistema siempre intenta primero traer la
+# cotización del día; esto es sólo un plan B.
+fx_fallback_ars_per_usd: 1400
+
+# Criterios que aplican a TODOS los perfiles de abajo (compra, alquiler, o
+# los que armes).
+shared:
   property_types:
     - "departamento"
     - "ph"
+    - "casa"
 
-  # Zonas por nombre de barrio/comuna (matching por texto contra lo que
-  # publica cada portal). Dejá la lista vacía para no filtrar por nombre.
+  # Barrios de más a menos preferido: no sólo definen el área de búsqueda
+  # (fuera de esta lista se descarta), el orden también suma puntaje —
+  # el primero de la lista puntúa más que el último.
   zones:
     - "Palermo"
     - "Villa Crespo"
     - "Chacarita"
+  zone_weight: 1.0
 
   # Alternativa (o complemento) a `zones`: círculos geográficos exactos.
   # Si un aviso trae coordenadas, esto tiene prioridad sobre el nombre del
-  # barrio. `radius_km` es el radio alrededor de ese punto.
+  # barrio (pero no gradúa por preferencia, sólo filtra sí/no).
   geo_zones: []
   # geo_zones:
   #   - lat: -34.5885
   #     lon: -58.4306
   #     radius_km: 1.5
 
-  price:
-    min: 0
-    max: 400000
-    tolerance: 50000  # cuánto te podés pasar del máximo antes de descartar el aviso
-
   ambientes:
     min: 2
     max: 3
-    tolerance: 1
+    hard: true    # fuera de este rango, se descarta directamente
 
   dormitorios:
     min: 1
     max: 2
-    tolerance: 1
+    hard: true
 
   banos:
-    min: 1
-    max: 2
-    tolerance: 1
+    min: 1          # piso obligatorio: si no llega, se descarta
+    hard: true
+    bigger_is_better: true   # 2 baños puntúa más que 1, sin ser excluyente
+    soft_ceiling: 3           # a partir de 3 ya se considera "el máximo"
 
-  m2_cubiertos:
+  m2:
     min: 40
-    max: 80
-    tolerance: 15
+    max: 90
+    hard: true
+    bigger_is_better: true   # cuanto más grande dentro del rango, mejor
 
-  antiguedad:
-    min: 0
-    max: 20
-    tolerance: 10
-
-  amenities:
-    wanted:
-      - "pileta"
-      - "gimnasio"
-      - "sum"
-      - "seguridad 24hs"
-    weight: 1.0
-
-  exterior:
+  # Al menos uno de estos espacios exteriores, sino se descarta. Si además
+  # definís min_area_m2 y el aviso informa el m2 de ese espacio, también
+  # tiene que cumplirlo (si no lo informa, se deja pasar con sólo tener el
+  # amenity).
+  exterior_required:
     wanted:
       - "balcon"
       - "terraza"
+      - "balcon terraza"
       - "patio"
+      - "jardin"
+    min_area_m2: 10
+
+  # Preferencia por niveles: no excluye, sólo suma más score cuanto más
+  # arriba está tu preferencia. Los valores dentro de un mismo nivel
+  # puntúan igual entre sí.
+  orientacion:
+    tiers:
+      - ["norte", "noreste"]
+      - ["este", "oeste"]
+      - ["sur"]
     weight: 1.0
 
-  servicios:
-    wanted:
-      - "gas natural"
-    weight: 0.5
+  # Cochera: suma si tiene, no descarta si no tiene.
+  parking_weight: 0.5
 
   # Debajo de este puntaje, la propiedad ni se muestra ni se manda por mail.
   min_score: 50
 
-# Fuentes activas. Cada una necesita su propia implementación en
-# src/realestate/connectors/ (ver docs/PLATAFORMAS.md).
-sources:
-  - zonaprop
-  - argenprop
-  - mercadolibre
-  - properati
+# Un perfil = una operación con su propio rango de precio, moneda y
+# destinatario. Cada perfil se escanea y se manda por mail POR SEPARADO
+# (nunca se mezclan en un mismo mail).
+profiles:
+  - operation: "venta"
+    label: "Compra"
+    recipient: "quien-lo-recibe@ejemplo.com"
+    currency: "USD"
+    price:
+      min: 100000
+      max: 200000
+      hard: true
+    apto_credito_required: false
 
-email:
-  recipient: "quien-lo-recibe@ejemplo.com"
-  sender_name: "Alertas de Propiedades"
+  - operation: "alquiler"
+    label: "Alquiler"
+    recipient: "quien-lo-recibe@ejemplo.com"
+    currency: "ARS"
+    price:
+      min: 400000
+      max: 900000
+      hard: true

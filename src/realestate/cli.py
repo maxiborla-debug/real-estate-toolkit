@@ -4,23 +4,37 @@ Uso:
     python -m realestate.cli scan
     python -m realestate.cli scan --dry-run
     python -m realestate.cli config-check
+
+`scan` corre TODOS los perfiles configurados (ej: Compra y Alquiler), cada
+uno contra todas las fuentes activas, y manda UN MAIL POR PERFIL (nunca
+mezclados) — ver docs/ARQUITECTURA.md.
 """
 from __future__ import annotations
 
 import argparse
 import importlib
+from pathlib import Path
 
-from .config import load_config
+from .config import AppConfig, ProfileConfig, load_config
+from .fx import get_ars_per_usd
 from .matching import rank_properties
 from .models import Property
 from .notifier import send_email
 from .storage import SeenStore
 
 CONNECTOR_REGISTRY: dict[str, tuple[str, str]] = {
-    "zonaprop": ("realestate.connectors.zonaprop", "ZonapropConnector"),
-    "argenprop": ("realestate.connectors.argenprop", "ArgenpropConnector"),
     "mercadolibre": ("realestate.connectors.mercadolibre", "MercadoLibreConnector"),
-    "properati": ("realestate.connectors.properati", "ProperatiConnector"),
+    "argenprop": ("realestate.connectors.argenprop", "ArgenpropConnector"),
+    "zonaprop": ("realestate.connectors.zonaprop", "ZonapropConnector"),
+    "remax": ("realestate.connectors.remax", "RemaxConnector"),
+    "mudafy": ("realestate.connectors.mudafy", "MudafyConnector"),
+    "cabaprop": ("realestate.connectors.cabaprop", "CabapropConnector"),
+    "buscadorprop": ("realestate.connectors.buscadorprop", "BuscadorpropConnector"),
+    "toribio_achaval": ("realestate.connectors.toribio_achaval", "ToribioAchavalConnector"),
+    "inmuebles_clarin": ("realestate.connectors.inmuebles_clarin", "InmueblesClarinConnector"),
+    "soloduenos": ("realestate.connectors.soloduenos", "SoloDuenosConnector"),
+    "buscainmueble": ("realestate.connectors.buscainmueble", "BuscaInmuebleConnector"),
+    "lepore": ("realestate.connectors.lepore", "LeporeConnector"),
 }
 
 
@@ -35,27 +49,32 @@ def _load_connector(name: str):
 def cmd_config_check(args: argparse.Namespace) -> None:
     config = load_config(args.config, args.env)
     print(f"Fuentes configuradas: {', '.join(config.sources) or '(ninguna)'}")
-    print(f"Operación: {config.search.operation}")
-    print(f"Zonas por nombre: {', '.join(config.search.zones) or '(sin filtro por nombre)'}")
-    print(f"Zonas geolocalizadas: {len(config.search.geo_zones)}")
-    print(f"Score mínimo: {config.search.min_score}%")
-    print(f"Email destino: {config.email.recipient or '(sin configurar)'}")
+    print(f"Zonas (orden de preferencia): {', '.join(config.shared.zones) or '(sin filtro por nombre)'}")
+    print(f"Score mínimo: {config.shared.min_score}%")
+    for profile in config.profiles:
+        print(
+            f"- Perfil '{profile.label}' ({profile.operation}): "
+            f"precio {profile.price.min}-{profile.price.max}, "
+            f"destinatario: {profile.recipient or '(sin configurar)'}"
+        )
 
 
-def cmd_scan(args: argparse.Namespace) -> None:
-    config = load_config(args.config, args.env)
-    seen = SeenStore.load(args.seen)
+def _scan_profile(
+    config: AppConfig, profile: ProfileConfig, seen_dir: Path, dry_run: bool, ars_per_usd: float
+) -> None:
+    criteria = config.criteria_for(profile, ars_per_usd=ars_per_usd)
+    seen = SeenStore.load(seen_dir / f"seen_{profile.operation}.json")
     is_first_run = len(seen.seen_ids) == 0
 
     all_properties: list[Property] = []
     for source in config.sources:
         connector = _load_connector(source)
         try:
-            all_properties.extend(connector.search_listings(config.search))
+            all_properties.extend(connector.search_listings(criteria))
         except NotImplementedError as exc:
-            print(f"[{source}] sin implementar todavía: {exc}")
+            print(f"[{profile.label}] [{source}] sin implementar todavía: {exc}")
 
-    ranked = rank_properties(all_properties, config.search)
+    ranked = rank_properties(all_properties, criteria)
 
     to_send = [
         r for r in ranked
@@ -66,25 +85,39 @@ def cmd_scan(args: argparse.Namespace) -> None:
         seen.mark_seen(f"{r.property.source}:{r.property.id}")
     seen.save()
 
-    print(f"{len(ranked)} propiedades matchean (score >= {config.search.min_score}%).")
-    print(f"{len(to_send)} son nuevas y se van a mandar por mail.")
+    print(
+        f"[{profile.label}] {len(ranked)} propiedades matchean "
+        f"(score >= {criteria.min_score}%). {len(to_send)} son nuevas."
+    )
 
-    if args.dry_run:
-        print("(--dry-run) No se mandó el mail.")
+    if dry_run:
+        print(f"[{profile.label}] (--dry-run) No se mandó el mail.")
     else:
-        send_email(to_send, is_first_run, config.email, config.smtp_user, config.smtp_password)
+        send_email(to_send, is_first_run, profile, config.sender_name, config.smtp_user, config.smtp_password)
+
+
+def cmd_scan(args: argparse.Namespace) -> None:
+    config = load_config(args.config, args.env)
+    seen_dir = Path(args.seen_dir)
+    # Una sola consulta de cotización por corrida (no una por perfil), para
+    # no golpear la API de más y para que compra/alquiler usen el mismo
+    # valor del día si ambos la necesitaran.
+    ars_per_usd = get_ars_per_usd(fallback=config.fx_fallback_ars_per_usd)
+    print(f"Cotización del día usada para comparar precios: {ars_per_usd:.0f} ARS/USD")
+    for profile in config.profiles:
+        _scan_profile(config, profile, seen_dir, args.dry_run, ars_per_usd)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="realestate")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    scan_parser = sub.add_parser("scan", help="Escanea todas las fuentes configuradas y manda el mail")
+    scan_parser = sub.add_parser("scan", help="Escanea todos los perfiles y fuentes, y manda un mail por perfil")
     scan_parser.add_argument("--config", default="config/config.yaml")
     scan_parser.add_argument("--env", default=".env")
-    scan_parser.add_argument("--seen", default="data/seen.json")
+    scan_parser.add_argument("--seen-dir", default="data")
     scan_parser.add_argument(
-        "--dry-run", action="store_true", help="No envía el mail, sólo muestra el resultado"
+        "--dry-run", action="store_true", help="No envía los mails, sólo muestra el resultado"
     )
     scan_parser.set_defaults(func=cmd_scan)
 

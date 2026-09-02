@@ -9,20 +9,28 @@ todos los días, sólo lo nuevo que matchea.
 ## Qué resuelve
 
 1. **Escanea** varios portales con los mismos criterios de búsqueda
-   (`config/config.yaml`).
+   (`config/config.yaml`), en dos "perfiles" independientes — típicamente
+   Compra y Alquiler, cada uno con su propio rango de precio, moneda y
+   destinatario.
 2. **Normaliza** cada aviso a un mismo modelo (`Property`), sin importar de
    qué sitio vino.
 3. **Puntúa** cada aviso de 0 a 100% según qué tan bien matchea tus
-   criterios — zona/operación/precio son filtros duros (o está adentro, o
-   se descarta); el resto (ambientes, baños, m², antigüedad, amenities,
-   exterior, servicios) son rangos y listas que suman o restan puntaje sin
-   descalificar de una (ej: "1 o 2 baños" da 100% en ese campo sea cual sea
-   de los dos). Sólo se muestran los avisos con 50% o más.
-4. **No repite**: guarda qué avisos ya viste, así del segundo día en
-   adelante el mail trae sólo lo nuevo.
-5. **Manda un mail** diario a quien vos quieras (no hace falta que tenga
-   Claude ni acceso a este repo) — corre solo, todos los días a las 17hs,
-   en GitHub Actions.
+   criterios: zona, operación, tipo, precio, ambientes, dormitorios, baños
+   (mínimo) y m2 son filtros duros — si no los cumple, se descarta, no se
+   muestra con "70% de match". Dentro de esos filtros, m2 y baños todavía
+   gradúan el score (cuanto más grande/más baños, mejor); zona y
+   orientación suman más score cuanto más arriba está tu preferencia, sin
+   excluir; parking suma si tiene, sin ser excluyente. Sólo se muestran los
+   avisos con 50% o más (configurable).
+4. **Convierte moneda** cuando hace falta: un alquiler publicado en USD se
+   compara contra tu rango en ARS usando la cotización del día (o
+   viceversa), en vez de descartarlo por estar en la moneda "equivocada".
+5. **No repite**: guarda qué avisos ya viste (por perfil), así del segundo
+   día en adelante el mail trae sólo lo nuevo.
+6. **Manda un mail por perfil** diario a quien vos quieras (no hace falta
+   que tenga Claude ni acceso a este repo) — corre solo, todos los días a
+   las 17hs, en GitHub Actions. Compra y alquiler nunca se mezclan en el
+   mismo mail.
 
 ## ⚠️ Antes de usarlo
 
@@ -49,11 +57,12 @@ docs/
   daily-scan.yml                    # cron diario (17hs Argentina)
 src/realestate/
   models.py                          # Property (el "idioma común")
-  config.py                           # criterios de búsqueda tipados
+  config.py                           # criterios de búsqueda tipados (compartidos + por perfil)
+  fx.py                                 # cotización del dólar del día
   geo.py                                # distancia entre coordenadas
   matching.py                           # motor de scoring 0-100%
-  storage.py                             # qué avisos ya viste (data/seen.json)
-  notifier.py                             # arma y manda el mail
+  storage.py                             # qué avisos ya viste, por perfil
+  notifier.py                             # arma y manda el mail de un perfil
   connectors/                              # un módulo por portal
   cli.py                                     # scan / config-check
 tests/

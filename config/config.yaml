@@ -1,0 +1,112 @@
+# Configuración real de este proyecto (no tiene credenciales, por eso se
+# commitea). Ver docs/CONFIGURACION.md para el detalle de cada campo.
+
+sources:
+  - mercadolibre
+  - argenprop
+  - zonaprop
+  - remax
+  - mudafy
+  - cabaprop
+  - buscadorprop
+  - toribio_achaval
+  - inmuebles_clarin
+  - soloduenos
+  - buscainmueble
+  - lepore
+
+sender_name: "Alertas de Propiedades"
+
+# Cotización de respaldo si la API de cotización del dólar no responde el
+# día del scan (ver src/realestate/fx.py). El sistema siempre intenta
+# primero traer la del día; esto es sólo un plan B.
+fx_fallback_ars_per_usd: 1400
+
+shared:
+  property_types:
+    - "departamento"
+    - "departamento de 2 plantas o mas"
+    - "duplex"
+    - "ph"
+    - "casa"
+    - "semipiso"
+
+  # De más a menos preferido — el orden suma puntaje además de definir el
+  # área de búsqueda (fuera de estos 4 barrios se descarta).
+  zones:
+    - "Nuñez"
+    - "Saavedra"
+    - "Coghlan"
+    - "Villa Urquiza"
+  zone_weight: 1.0
+  geo_zones: []
+
+  ambientes:
+    min: 2
+    max: 4
+    hard: true   # descarta si tiene menos de 2 o más de 4
+
+  dormitorios:
+    min: 2
+    max: 3
+    hard: true   # descarta si tiene menos de 2 o más de 3
+
+  banos:
+    min: 1              # obligatorio al menos 1: si no informan o tiene 0, se descarta
+    hard: true
+    bigger_is_better: true   # 2 baños suma más puntaje, pero no es excluyente
+    soft_ceiling: 3
+
+  m2:
+    min: 45
+    max: 125
+    hard: true
+    bigger_is_better: true   # dentro del rango, cuanto más grande, mejor
+
+  # Balcón, terraza, "balcón terraza", patio o jardín — al menos uno de
+  # estos, sino se descarta. Si el aviso informa el m2 de ese espacio y es
+  # menor a 10, también se descarta; si no lo informa, se deja pasar con
+  # sólo tener el amenity.
+  exterior_required:
+    wanted:
+      - "balcon"
+      - "terraza"
+      - "balcon terraza"
+      - "patio"
+      - "jardin"
+    min_area_m2: 10
+
+  # No excluye nada: sólo suma más score cuanto mejor orientada.
+  orientacion:
+    tiers:
+      - ["norte", "noreste"]
+      - ["este", "oeste"]
+      - ["sur"]
+    weight: 1.0
+
+  # Cochera: suma si tiene, no descarta si no tiene.
+  parking_weight: 0.5
+
+  min_score: 50
+
+profiles:
+  - operation: "venta"
+    label: "Compra"
+    recipient: "maxiborla@gmail.com"   # de prueba por ahora; cambiar cuando esté todo OK
+    currency: "USD"
+    price:
+      min: 150000
+      max: 250000
+      hard: true
+    apto_credito_required: true   # descarta si el aviso no es apto crédito (o no lo aclara)
+
+  - operation: "alquiler"
+    label: "Alquiler"
+    recipient: "maxiborla@gmail.com"   # de prueba por ahora; cambiar cuando esté todo OK
+    currency: "ARS"
+    price:
+      min: 1100000
+      max: 2100000
+      hard: true
+    # Un aviso de alquiler publicado en USD se convierte a ARS con la
+    # cotización del día (ver fx.py) antes de compararlo contra este rango.
