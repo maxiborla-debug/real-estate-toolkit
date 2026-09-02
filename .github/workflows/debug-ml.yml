@@ -1,0 +1,52 @@
+name: Debug MercadoLibre API (temporal)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Buscar categoría "Inmuebles" y sus subcategorías
+        run: |
+          echo "== Categorías raíz de MLA =="
+          curl -s "https://api.mercadolibre.com/sites/MLA/categories" | tee /tmp/categories.json | python3 -c "
+import json,sys
+data = json.load(sys.stdin)
+for c in data:
+    if 'nmueble' in c['name']:
+        print(c)
+"
+          INMUEBLES_ID=$(python3 -c "
+import json
+data = json.load(open('/tmp/categories.json'))
+for c in data:
+    if 'nmueble' in c['name']:
+        print(c['id'])
+        break
+")
+          echo "INMUEBLES_ID=$INMUEBLES_ID"
+          echo "== Subcategorías de Inmuebles =="
+          curl -s "https://api.mercadolibre.com/categories/$INMUEBLES_ID" | python3 -m json.tool
+
+      - name: Ejemplo de búsqueda y attributos de un item
+        run: |
+          echo "== Search de ejemplo (Inmuebles, Capital Federal) =="
+          curl -s "https://api.mercadolibre.com/sites/MLA/search?category=MLA1459&limit=2" | python3 -m json.tool | head -200
+
+      - name: Categoría específica de Departamentos en venta/alquiler (si existe)
+        run: |
+          curl -s "https://api.mercadolibre.com/sites/MLA/search?category=MLA1459&limit=1" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+print('total:', data.get('paging', {}).get('total'))
+print('available_filters:')
+for f in data.get('available_filters', []):
+    print(' -', f.get('id'), f.get('name'))
+    for v in f.get('values', [])[:15]:
+        print('     ', v.get('id'), v.get('name'))
+if data.get('results'):
+    print()
+    print('== primer resultado completo ==')
+    print(json.dumps(data['results'][0], indent=2, ensure_ascii=False))
+"
