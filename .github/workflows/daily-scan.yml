@@ -14,6 +14,10 @@ on:
         description: "Opcional: nombre de una fuente (ej: mercadolibre) para inspeccionar sus datos crudos en vez de correr el scan normal"
         type: string
         default: ""
+      probe_sites:
+        description: "Sonda rápida: GET simple a la home de cada sitio, para ver cuáles bloquean el tráfico"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -37,8 +41,12 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           DRY_RUN: ${{ inputs.dry_run }}
           DEBUG_SOURCE: ${{ inputs.debug_source }}
+          PROBE_SITES: ${{ inputs.probe_sites }}
         run: |
-          if [ -n "$DEBUG_SOURCE" ]; then
+          if [ "$PROBE_SITES" = "true" ]; then
+            echo "== Modo probe-sites (no se manda mail) =="
+            python -m realestate.cli probe-sites
+          elif [ -n "$DEBUG_SOURCE" ]; then
             echo "== Modo debug-source: $DEBUG_SOURCE (no se manda mail) =="
             python -m realestate.cli debug-source "$DEBUG_SOURCE"
           elif [ "$DRY_RUN" = "true" ]; then

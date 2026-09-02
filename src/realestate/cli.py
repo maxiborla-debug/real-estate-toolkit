@@ -122,6 +122,15 @@ def cmd_debug_source(args: argparse.Namespace) -> None:
         print(f"url={prop.url}")
 
 
+def cmd_probe_sites(args: argparse.Namespace) -> None:
+    """GET simple a la home de cada sitio configurado como fuente, para ver
+    quién bloquea el tráfico ANTES de escribir un parser completo."""
+    from .probe import probe_all
+
+    for result in probe_all():
+        print(result)
+
+
 def cmd_scan(args: argparse.Namespace) -> None:
     config = load_config(args.config, args.env)
     seen_dir = Path(args.seen_dir)
@@ -162,6 +171,12 @@ def build_parser() -> argparse.ArgumentParser:
     debug_parser.add_argument("--operation", default="venta")
     debug_parser.add_argument("--limit", type=int, default=3)
     debug_parser.set_defaults(func=cmd_debug_source)
+
+    probe_parser = sub.add_parser(
+        "probe-sites",
+        help="GET simple a la home de cada sitio, para ver cuáles bloquean el tráfico (no manda mail)",
+    )
+    probe_parser.set_defaults(func=cmd_probe_sites)
 
     return parser
 
