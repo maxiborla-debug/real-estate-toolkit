@@ -18,6 +18,14 @@ on:
         description: "Sonda rápida: GET simple a la home de cada sitio, para ver cuáles bloquean el tráfico"
         type: boolean
         default: false
+      fetch_url:
+        description: "Opcional: URL puntual para inspeccionar su HTML crudo (para desarrollar un conector nuevo)"
+        type: string
+        default: ""
+      fetch_grep:
+        description: "Opcional, junto con fetch_url: sólo mostrar líneas que contengan este texto"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -35,15 +43,20 @@ jobs:
       - name: Instalar dependencias
         run: pip install -e .
 
-      - name: Correr el scan (o debug-source, o dry-run manual)
+      - name: Correr el scan (o alguna herramienta de diagnóstico)
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           DRY_RUN: ${{ inputs.dry_run }}
           DEBUG_SOURCE: ${{ inputs.debug_source }}
           PROBE_SITES: ${{ inputs.probe_sites }}
+          FETCH_URL: ${{ inputs.fetch_url }}
+          FETCH_GREP: ${{ inputs.fetch_grep }}
         run: |
-          if [ "$PROBE_SITES" = "true" ]; then
+          if [ -n "$FETCH_URL" ]; then
+            echo "== Modo fetch-url: $FETCH_URL (no se manda mail) =="
+            python -m realestate.cli fetch-url "$FETCH_URL" --grep "$FETCH_GREP"
+          elif [ "$PROBE_SITES" = "true" ]; then
             echo "== Modo probe-sites (no se manda mail) =="
             python -m realestate.cli probe-sites
           elif [ -n "$DEBUG_SOURCE" ]; then

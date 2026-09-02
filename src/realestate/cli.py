@@ -122,6 +122,27 @@ def cmd_debug_source(args: argparse.Namespace) -> None:
         print(f"url={prop.url}")
 
 
+def cmd_fetch_url(args: argparse.Namespace) -> None:
+    """Trae el HTML crudo de una URL puntual — para inspeccionar la
+    estructura real de un sitio antes de escribir su conector. `--grep`
+    filtra sólo las líneas que contengan ese texto (útil para encontrar
+    links de navegación o patrones de precio sin volcar toda la página)."""
+    import requests
+
+    from .probe import REQUEST_HEADERS
+
+    response = requests.get(args.url, headers=REQUEST_HEADERS, timeout=20)
+    print(f"status={response.status_code} length={len(response.content)}")
+    text = response.text
+    if args.grep:
+        matches = [line.strip() for line in text.splitlines() if args.grep.lower() in line.lower()]
+        print(f"{len(matches)} líneas con '{args.grep}' (mostrando hasta {args.limit}):")
+        for line in matches[: args.limit]:
+            print(line[:400])
+    else:
+        print(text[args.start : args.start + args.length])
+
+
 def cmd_probe_sites(args: argparse.Namespace) -> None:
     """GET simple a la home de cada sitio configurado como fuente, para ver
     quién bloquea el tráfico ANTES de escribir un parser completo."""
@@ -177,6 +198,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="GET simple a la home de cada sitio, para ver cuáles bloquean el tráfico (no manda mail)",
     )
     probe_parser.set_defaults(func=cmd_probe_sites)
+
+    fetch_parser = sub.add_parser(
+        "fetch-url",
+        help="Trae el HTML crudo de una URL puntual, para inspeccionar un sitio antes de escribir su conector",
+    )
+    fetch_parser.add_argument("url")
+    fetch_parser.add_argument("--grep", default="", help="Sólo mostrar líneas que contengan este texto")
+    fetch_parser.add_argument("--limit", type=int, default=40, help="Máximo de líneas a mostrar con --grep")
+    fetch_parser.add_argument("--start", type=int, default=0, help="Offset de caracteres (sin --grep)")
+    fetch_parser.add_argument("--length", type=int, default=3000, help="Cantidad de caracteres (sin --grep)")
+    fetch_parser.set_defaults(func=cmd_fetch_url)
 
     return parser
 
