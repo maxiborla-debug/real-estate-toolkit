@@ -32,6 +32,15 @@ if TYPE_CHECKING:
     from ..config import SearchCriteria
 
 SEARCH_URL = "https://api.mercadolibre.com/sites/MLA/search"
+# La API rechaza con 403 el User-Agent por defecto de `requests`; con un
+# User-Agent de navegador normal responde bien.
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json",
+}
 CATEGORY_INMUEBLES = "MLA1459"
 PAGE_SIZE = 50
 MAX_PAGES_PER_ZONE = 4  # tope de páginas por zona buscada, para no pedir de más
@@ -108,7 +117,7 @@ class MercadoLibreConnector(RealEstateConnector):
             params = {"category": CATEGORY_INMUEBLES, "limit": PAGE_SIZE, "offset": offset}
             if zone:
                 params["q"] = zone
-            response = requests.get(SEARCH_URL, params=params, timeout=20)
+            response = requests.get(SEARCH_URL, params=params, headers=REQUEST_HEADERS, timeout=20)
             response.raise_for_status()
             data = response.json()
             batch = data.get("results", [])
