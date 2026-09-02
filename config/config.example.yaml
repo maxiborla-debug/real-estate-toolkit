@@ -1,0 +1,94 @@
+# Copiá este archivo a config/config.yaml, completá con tus criterios
+# reales y COMMITEALO — a diferencia de las credenciales (que van en
+# secrets de GitHub / .env), este archivo no tiene datos sensibles y el
+# workflow de GitHub Actions lo necesita presente para poder correr el scan
+# diario sin intervención manual.
+
+search:
+  # Qué operación buscás: "venta" o "alquiler"
+  operation: "alquiler"
+
+  property_types:
+    - "departamento"
+    - "ph"
+
+  # Zonas por nombre de barrio/comuna (matching por texto contra lo que
+  # publica cada portal). Dejá la lista vacía para no filtrar por nombre.
+  zones:
+    - "Palermo"
+    - "Villa Crespo"
+    - "Chacarita"
+
+  # Alternativa (o complemento) a `zones`: círculos geográficos exactos.
+  # Si un aviso trae coordenadas, esto tiene prioridad sobre el nombre del
+  # barrio. `radius_km` es el radio alrededor de ese punto.
+  geo_zones: []
+  # geo_zones:
+  #   - lat: -34.5885
+  #     lon: -58.4306
+  #     radius_km: 1.5
+
+  price:
+    min: 0
+    max: 400000
+    tolerance: 50000  # cuánto te podés pasar del máximo antes de descartar el aviso
+
+  ambientes:
+    min: 2
+    max: 3
+    tolerance: 1
+
+  dormitorios:
+    min: 1
+    max: 2
+    tolerance: 1
+
+  banos:
+    min: 1
+    max: 2
+    tolerance: 1
+
+  m2_cubiertos:
+    min: 40
+    max: 80
+    tolerance: 15
+
+  antiguedad:
+    min: 0
+    max: 20
+    tolerance: 10
+
+  amenities:
+    wanted:
+      - "pileta"
+      - "gimnasio"
+      - "sum"
+      - "seguridad 24hs"
+    weight: 1.0
+
+  exterior:
+    wanted:
+      - "balcon"
+      - "terraza"
+      - "patio"
+    weight: 1.0
+
+  servicios:
+    wanted:
+      - "gas natural"
+    weight: 0.5
+
+  # Debajo de este puntaje, la propiedad ni se muestra ni se manda por mail.
+  min_score: 50
+
+# Fuentes activas. Cada una necesita su propia implementación en
+# src/realestate/connectors/ (ver docs/PLATAFORMAS.md).
+sources:
+  - zonaprop
+  - argenprop
+  - mercadolibre
+  - properati
+
+email:
+  recipient: "quien-lo-recibe@ejemplo.com"
+  sender_name: "Alertas de Propiedades"

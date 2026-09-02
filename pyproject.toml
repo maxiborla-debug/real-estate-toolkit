@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "real-estate-toolkit"
+version = "0.1.0"
+description = "Framework normalizable para monitorear y matchear avisos de compra/venta/alquiler de propiedades en portales argentinos, con alertas diarias por email."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+scraping = ["beautifulsoup4>=4.12", "playwright>=1.40"]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+build/
+dist/
+
+# Credenciales locales, nunca se commitean (en producción van como Secrets
+# de GitHub Actions, ver docs/DESPLIEGUE.md)
+.env
+
+# Nota: config/config.yaml y data/seen.json SÍ se commitean a propósito —
+# no tienen credenciales y el workflow diario los necesita presentes en el
+# repo. Ver docs/CONFIGURACION.md y docs/DESPLIEGUE.md.

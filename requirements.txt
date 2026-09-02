@@ -1,0 +1,12 @@
+# Instalación rápida sin pyproject: pip install -r requirements.txt
+# (equivalente a las dependencias base de pyproject.toml)
+pyyaml>=6.0
+python-dotenv>=1.0
+requests>=2.31
+
+# Opcionales: sólo si tu implementación de algún conector los necesita
+# beautifulsoup4>=4.12
+# playwright>=1.40
+
+# Para correr los tests
+pytest>=8.0
