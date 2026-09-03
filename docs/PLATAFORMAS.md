@@ -17,36 +17,52 @@ automatizar LinkedIn/Indeed, pero igual aplican buenas prácticas:
 4. Si el sitio ofrece una API pública/oficial, usala en vez de scrapear
    HTML.
 
-## Estado real por sitio (probado desde GitHub Actions)
+## Estado real por sitio (actualizado: probado desde tu runner residencial)
 
 Se probó cada sitio de dos formas: un `GET` simple (`requests`) y un
 navegador real headless (Playwright/Chromium) — ver `probe.py` y el comando
-`probe-sites [--browser]`. El proyecto corre ahora en un **self-hosted
-runner** (tu computadora, ver `docs/DESPLIEGUE.md`) precisamente porque
-varios de estos bloqueos son por reputación de IP de datacenter, algo que
-ni el navegador real soluciona.
+`probe-sites [--browser]`.
 
-| Sitio | GET simple | Navegador | Notas |
-|---|---|---|---|
-| MercadoLibre (web) | ✅ limpio | ✅ limpio | La *web* no bloquea; su API de búsqueda (`api.mercadolibre.com`) sí devuelve 403 desde IPs de datacenter — confirmado. |
-| RE/MAX | ✅ limpio | ✅ limpio | Angular con SSR; trae bastante data embebida en `ng-state`. API real encontrada: `api-ar.redremax.com` (`/api/listings/findTotalResultByLanding/<slug>` confirmado; el endpoint de resultados completos todavía no). |
-| Mudafy | ✅ limpio | ✅ limpio | Sin investigar en profundidad todavía. |
-| Solo Dueños | ✅ limpio | ✅ limpio | React + Supabase. Tabla real `properties` confirmada, pero bloqueada por Row Level Security para el rol anónimo — hace falta encontrar el RPC público que usa el buscador (se vio `H.rpc("sear...` en el bundle, truncado). |
-| Lepore | ✅ limpio | ✅ limpio | SPA sobre una plataforma SaaS de terceros ("Cliksi", assets en `cliksi-saas-base.s3.amazonaws.com`) — sin investigar su API interna todavía. |
-| Zonaprop | ✅ limpio | ❌ **detecta el navegador headless** | Caso interesante: un GET simple pasa sin problema, pero Playwright dispara su detección de bots (probablemente por fingerprint de Chromium automatizado). Con `requests` simple sería el camino, sin renderizar JS — falta confirmar si trae los datos en el HTML crudo o los carga después por JS. |
-| Argenprop | ❌ 405 | ⚠️ pasa pero cae en un desafío | Con navegador ya no es un bloqueo duro (405→200) pero el contenido es una página de challenge genérica (10 KB), no los resultados reales. |
-| Inmuebles Clarín | ❌ 405 | ⚠️ ídem | Misma página de challenge genérica (10 KB) que Argenprop y Busca Inmueble — probablemente comparten el mismo servicio de protección. |
-| Busca Inmueble | ❌ 405 | ⚠️ ídem | Ídem. |
-| CABAProp | ⚠️ desafío | ⚠️ desafío (sin cambios) | Ni el GET simple ni el navegador headless lo pasan. |
-| BuscadorProp | ⚠️ desafío | ⚠️ desafío (sin cambios) | Ídem. |
-| Toribio Achával | ⚠️ desafío | ⚠️ desafío (sin cambios) | Ídem. |
+**Resultado final, desde tu Mac (IP residencial) con navegador real: los 12
+sitios devuelven 200 con el contenido completo, sin ninguna señal de
+bloqueo.** Esto contradice una conclusión anterior de este documento (ver
+nota histórica abajo) — la sonda tenía un heurístico de detección de
+bloqueo demasiado amplio (marcaba "captcha" o "cloudflare" como señal de
+bloqueo, pero esas palabras también aparecen en features normales como un
+widget de reCAPTCHA de un formulario de login), y eso generaba falsos
+positivos. Corregido en `probe.py` (`_BLOCK_MARKERS`).
 
-**Lectura práctica**: los 5 primeros (MercadoLibre, RE/MAX, Mudafy, Solo
-Dueños, Lepore) no tienen ningún bloqueo — son pura implementación normal.
-Zonaprop necesita el enfoque contrario (sin navegador). Los otros 6 son los
-candidatos a probar con el runner en tu computadora (IP residencial) antes
-de invertir más tiempo — si con eso tampoco pasan, puede hacer falta además
-un plugin anti-detección tipo `playwright-stealth`.
+| Sitio | GET simple (desde GitHub Actions) | Navegador (desde tu runner residencial) |
+|---|---|---|
+| MercadoLibre (web) | ✅ limpio | ✅ limpio |
+| RE/MAX | ✅ limpio | ✅ limpio |
+| Mudafy | ✅ limpio | ✅ limpio |
+| Solo Dueños | ✅ limpio | ✅ limpio |
+| Lepore | ✅ limpio | ✅ limpio |
+| Zonaprop | ✅ limpio | ✅ limpio |
+| Argenprop | ❌ 405 (IP datacenter) | ✅ limpio |
+| Inmuebles Clarín | ❌ 405 (IP datacenter) | ✅ limpio |
+| Busca Inmueble | ❌ 405 (IP datacenter) | ✅ limpio |
+| CABAProp | ⚠️ desafío (IP datacenter) | ✅ limpio |
+| BuscadorProp | ⚠️ desafío (IP datacenter) | ✅ limpio |
+| Toribio Achával | ⚠️ desafío (IP datacenter) | ✅ limpio |
+
+**Lectura práctica**: la migración al self-hosted runner (IP residencial)
+resolvió el problema de reachability para los 12 sitios. Lo que queda
+pendiente para cada uno **no es esquivar un bloqueo, es escribir el
+parser/conector real** que extraiga los avisos de cada sitio (ver
+`docs/CONTRIBUIR.md`) — MercadoLibre y, parcialmente, Solo Dueños y RE/MAX
+ya tienen ese trabajo empezado (ver notas específicas abajo).
+
+### Nota histórica (ya resuelta): bloqueo desde la nube de GitHub
+
+Cuando el scan corría en los runners compartidos de GitHub Actions (IP de
+datacenter), 6 de los 12 sitios devolvían 405 o una página de desafío
+genérica de ~10 KB, tanto con `requests` como con navegador headless — un
+bloqueo real por reputación de IP, no arreglable con un cliente más
+"parecido a un navegador". Esa fue la razón original para migrar a un
+self-hosted runner en tu propia computadora (ver `docs/DESPLIEGUE.md`). La
+migración funcionó: ninguno de esos 6 sitios sigue bloqueado.
 
 ## Notas específicas
 
@@ -77,17 +93,13 @@ Corre sobre una plataforma SaaS ("Cliksi") usada probablemente por más de
 una inmobiliaria chica — si se investiga su API interna, el mismo trabajo
 podría servir para otros sitios construidos sobre la misma plataforma.
 
-### Zonaprop, Argenprop
+### Zonaprop, Argenprop, CABAProp, BuscadorProp, Toribio Achával, Inmuebles Clarín, Busca Inmueble
 
-Sin API pública documentada. Zonaprop parece aceptar un `GET` simple sin
-JS; Argenprop bloquea con 405 salvo con navegador (y ahí cae en un
-challenge). Quedan pendientes de implementación real.
-
-### CABAProp, BuscadorProp, Toribio Achával, Inmuebles Clarín, Busca Inmueble
-
-Los cinco resisten tanto `requests` como Playwright headless. Candidatos a
-reintentar una vez que el scan corra desde una IP residencial (self-hosted
-runner).
+Sin API pública documentada todavía. Ya no hay ningún bloqueo de por medio
+(ver tabla arriba) — el trabajo pendiente para cada uno es puramente de
+implementación: inspeccionar su HTML/JS con `fetch-url [--browser]` para
+encontrar cómo extraer los avisos (HTML renderizado, una API interna tipo
+la de RE/MAX o Solo Dueños, etc.) y escribir el conector real.
 
 ## Agregar un portal nuevo
 
