@@ -33,11 +33,25 @@ directamente en tu máquina. Es el enfoque recomendado para un repo privado
 tuyo (como este), pero nunca lo uses en un repo público donde cualquiera
 pueda abrir un Pull Request — ahí sí sería un riesgo real.
 
+**Requisito: Python 3.10+ ya instalado en la máquina.** El workflow corre
+`python3` directamente en vez de instalar su propio Python (a diferencia de
+un runner de la nube de GitHub, acá no hace falta ni conviene que la Action
+instale nada en el sistema). Verificá que ya lo tengas:
+```bash
+python3 --version
+```
+- **macOS**: viene instalado de fábrica, pero si es muy viejo, instalá uno
+  nuevo con `brew install python3` (necesitás [Homebrew](https://brew.sh)).
+- **Linux**: `sudo apt install python3 python3-pip` (Debian/Ubuntu) o el
+  equivalente de tu distro.
+- **Windows**: instalalo desde https://www.python.org/downloads/ (tildá
+  "Add python.exe to PATH" en el instalador).
+
 **Linux**: la primera vez puede hacer falta instalar dependencias del
 sistema para Chromium (el workflow ya no lo hace automático, ver el
 comentario en `daily-scan.yml`):
 ```bash
-sudo python -m playwright install-deps chromium
+sudo python3 -m playwright install-deps chromium
 ```
 
 ## 2. Cargar los criterios reales

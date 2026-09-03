@@ -58,12 +58,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
+      # No usamos actions/setup-python acá: esa Action intenta descargar e
+      # instalar Python en una carpeta pensada para los runners de la nube
+      # de GitHub (/Users/runner/... o equivalente), que no existe ni es
+      # escribible en un self-hosted runner corrido con tu propio usuario —
+      # falla con "Permission denied". En cambio usamos el python3 que ya
+      # tiene instalada tu máquina (ver requisito en docs/DESPLIEGUE.md).
       - name: Instalar dependencias
-        run: pip install -e .
+        run: python3 -m pip install -e .
 
       - name: Instalar Chromium (Playwright)
         # Sin --with-deps: esa flag instala paquetes del sistema vía apt y
@@ -71,8 +73,8 @@ jobs:
         # aplica en Windows/Mac, y en un self-hosted runner no conviene
         # correr instalaciones de sistema en cada job. Si tu runner es
         # Linux y falla por librerías faltantes, corré una vez a mano:
-        # sudo python -m playwright install-deps chromium
-        run: python -m playwright install chromium
+        # sudo python3 -m playwright install-deps chromium
+        run: python3 -m playwright install chromium
 
       - name: Correr el scan (o alguna herramienta de diagnóstico)
         env:
@@ -94,26 +96,26 @@ jobs:
             if [ "$FETCH_BROWSER" = "true" ]; then
               ARGS+=(--browser --wait-selector "$FETCH_WAIT_SELECTOR")
             fi
-            python -m realestate.cli "${ARGS[@]}"
+            python3 -m realestate.cli "${ARGS[@]}"
           elif [ "$PROBE_SITES" = "true" ]; then
             echo "== Modo probe-sites (no se manda mail) =="
             if [ "$PROBE_BROWSER" = "true" ]; then
-              python -m realestate.cli probe-sites --browser
+              python3 -m realestate.cli probe-sites --browser
             else
-              python -m realestate.cli probe-sites
+              python3 -m realestate.cli probe-sites
             fi
           elif [ -n "$DEBUG_SOURCE" ]; then
             echo "== Modo debug-source: $DEBUG_SOURCE (no se manda mail) =="
             if [ "$DEBUG_RAW_KEYS" = "true" ]; then
-              python -m realestate.cli debug-source "$DEBUG_SOURCE" --raw-keys
+              python3 -m realestate.cli debug-source "$DEBUG_SOURCE" --raw-keys
             else
-              python -m realestate.cli debug-source "$DEBUG_SOURCE"
+              python3 -m realestate.cli debug-source "$DEBUG_SOURCE"
             fi
           elif [ "$DRY_RUN" = "true" ]; then
             echo "== Modo dry-run: no se manda ningún mail =="
-            python -m realestate.cli scan --dry-run
+            python3 -m realestate.cli scan --dry-run
           else
-            python -m realestate.cli scan
+            python3 -m realestate.cli scan
           fi
 
       - name: Guardar qué avisos ya vimos
