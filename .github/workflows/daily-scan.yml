@@ -14,6 +14,10 @@ on:
         description: "Opcional: nombre de una fuente (ej: mercadolibre) para inspeccionar sus datos crudos en vez de correr el scan normal"
         type: string
         default: ""
+      debug_raw_keys:
+        description: "Junto con debug_source: también mostrar las claves del dato crudo del primer aviso"
+        type: boolean
+        default: false
       probe_sites:
         description: "Sonda rápida: GET simple a la home de cada sitio, para ver cuáles bloquean el tráfico"
         type: boolean
@@ -49,6 +53,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           DRY_RUN: ${{ inputs.dry_run }}
           DEBUG_SOURCE: ${{ inputs.debug_source }}
+          DEBUG_RAW_KEYS: ${{ inputs.debug_raw_keys }}
           PROBE_SITES: ${{ inputs.probe_sites }}
           FETCH_URL: ${{ inputs.fetch_url }}
           FETCH_GREP: ${{ inputs.fetch_grep }}
@@ -61,7 +66,11 @@ jobs:
             python -m realestate.cli probe-sites
           elif [ -n "$DEBUG_SOURCE" ]; then
             echo "== Modo debug-source: $DEBUG_SOURCE (no se manda mail) =="
-            python -m realestate.cli debug-source "$DEBUG_SOURCE"
+            if [ "$DEBUG_RAW_KEYS" = "true" ]; then
+              python -m realestate.cli debug-source "$DEBUG_SOURCE" --raw-keys
+            else
+              python -m realestate.cli debug-source "$DEBUG_SOURCE"
+            fi
           elif [ "$DRY_RUN" = "true" ]; then
             echo "== Modo dry-run: no se manda ningún mail =="
             python -m realestate.cli scan --dry-run

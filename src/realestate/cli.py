@@ -120,6 +120,8 @@ def cmd_debug_source(args: argparse.Namespace) -> None:
         print(f"m2_cubiertos={prop.m2_cubiertos}  m2_totales={prop.m2_totales}  parking={prop.parking}")
         print(f"exterior={prop.exterior}  orientacion={prop.orientacion!r}  apto_credito={prop.apto_credito}")
         print(f"url={prop.url}")
+        if args.raw_keys and isinstance(prop.raw, dict):
+            print(f"raw_keys={sorted(prop.raw.keys())}")
 
 
 def cmd_fetch_url(args: argparse.Namespace) -> None:
@@ -202,6 +204,9 @@ def build_parser() -> argparse.ArgumentParser:
     debug_parser.add_argument("--env", default=".env")
     debug_parser.add_argument("--operation", default="venta")
     debug_parser.add_argument("--limit", type=int, default=3)
+    debug_parser.add_argument(
+        "--raw-keys", action="store_true", help="Mostrar también las claves del dato crudo (raw) de cada aviso"
+    )
     debug_parser.set_defaults(func=cmd_debug_source)
 
     probe_parser = sub.add_parser(
