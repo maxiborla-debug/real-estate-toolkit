@@ -51,10 +51,10 @@ _BLOCK_MARKERS = (
 
 def probe_site(name: str, url: str, use_browser: bool = False) -> dict:
     if use_browser:
-        from .browser import fetch_rendered_html
+        from .browser import fetch_rendered_html_safe
 
         try:
-            text = fetch_rendered_html(url)
+            text = fetch_rendered_html_safe(url)
         except Exception as exc:  # cualquier falla de Playwright (timeout, navegación, etc.)
             return {"source": name, "url": url, "status": None, "error": repr(exc), "mode": "browser"}
         text_lower = text.lower()

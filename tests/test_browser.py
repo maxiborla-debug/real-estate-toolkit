@@ -1,6 +1,9 @@
+import time
 from unittest.mock import MagicMock, patch
 
-from realestate.browser import fetch_rendered_html
+import pytest
+
+from realestate.browser import fetch_rendered_html, fetch_rendered_html_safe
 
 
 def _make_playwright_mock(page: MagicMock) -> MagicMock:
@@ -65,3 +68,26 @@ def test_fetch_rendered_html_closes_browser_even_on_error():
             pass
 
     browser.close.assert_called_once()
+
+
+def test_fetch_rendered_html_safe_returns_result_when_fast_enough():
+    with patch("realestate.browser.fetch_rendered_html", return_value="<html>ok</html>"):
+        html = fetch_rendered_html_safe("https://example.com", hard_timeout_s=5)
+
+    assert html == "<html>ok</html>"
+
+
+def test_fetch_rendered_html_safe_reraises_underlying_error():
+    with patch("realestate.browser.fetch_rendered_html", side_effect=RuntimeError("boom")):
+        with pytest.raises(RuntimeError, match="boom"):
+            fetch_rendered_html_safe("https://example.com", hard_timeout_s=5)
+
+
+def test_fetch_rendered_html_safe_times_out_instead_of_hanging_forever():
+    def _hang(url, **kwargs):
+        time.sleep(10)  # más que el hard_timeout_s de abajo
+        return "<html>nunca llega</html>"
+
+    with patch("realestate.browser.fetch_rendered_html", side_effect=_hang):
+        with pytest.raises(TimeoutError, match="no respondió"):
+            fetch_rendered_html_safe("https://example.com", hard_timeout_s=0.1)
