@@ -46,9 +46,15 @@ on:
 permissions:
   contents: write
 
+# Corre en TU computadora (self-hosted runner), no en la nube de GitHub —
+# varios de los portales bloquean las IPs de datacenter de GitHub Actions
+# pero no una IP residencial normal. Ver docs/DESPLIEGUE.md para cómo
+# registrar tu máquina como runner. Si tu compu está apagada a las 17hs, la
+# corrida queda en cola y se dispara sola apenas la prendas/conectes — no
+# se pierde.
 jobs:
   scan:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
@@ -60,7 +66,13 @@ jobs:
         run: pip install -e .
 
       - name: Instalar Chromium (Playwright)
-        run: python -m playwright install --with-deps chromium
+        # Sin --with-deps: esa flag instala paquetes del sistema vía apt y
+        # sólo tiene sentido en Linux corrido como root/con sudo — no
+        # aplica en Windows/Mac, y en un self-hosted runner no conviene
+        # correr instalaciones de sistema en cada job. Si tu runner es
+        # Linux y falla por librerías faltantes, corré una vez a mano:
+        # sudo python -m playwright install-deps chromium
+        run: python -m playwright install chromium
 
       - name: Correr el scan (o alguna herramienta de diagnóstico)
         env:

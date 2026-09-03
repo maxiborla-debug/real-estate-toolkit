@@ -29,8 +29,10 @@ todos los días, sólo lo nuevo que matchea.
    día en adelante el mail trae sólo lo nuevo.
 6. **Manda un mail por perfil** diario a quien vos quieras (no hace falta
    que tenga Claude ni acceso a este repo) — corre solo, todos los días a
-   las 17hs, en GitHub Actions. Compra y alquiler nunca se mezclan en el
-   mismo mail.
+   las 17hs, vía GitHub Actions sobre un runner propio (tu computadora,
+   registrada como self-hosted runner — varios portales bloquean las IPs
+   de datacenter de la nube compartida de GitHub, no una IP residencial).
+   Compra y alquiler nunca se mezclan en el mismo mail.
 
 ## ⚠️ Antes de usarlo
 
@@ -50,8 +52,8 @@ config/
 docs/
   ARQUITECTURA.md            # cómo encajan las piezas
   CONFIGURACION.md            # qué significa cada campo de config.yaml
-  PLATAFORMAS.md                # notas por portal (Zonaprop/Argenprop/ML/Properati)
-  DESPLIEGUE.md                  # cómo dejarlo corriendo solo en GitHub Actions
+  PLATAFORMAS.md                # notas por portal y qué tan bloqueado está cada uno
+  DESPLIEGUE.md                  # cómo registrar tu compu como runner y dejarlo corriendo solo
   CONTRIBUIR.md                    # cómo sumar un portal nuevo
 .github/workflows/
   daily-scan.yml                    # cron diario (17hs Argentina)
