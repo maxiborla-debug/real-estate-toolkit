@@ -23,9 +23,10 @@ PROPERTIES_JSON = [
 
 
 class _FakeResponse:
-    def __init__(self, *, text=None, json_data=None):
+    def __init__(self, *, text=None, json_data=None, status_code=200):
         self._text = text
         self._json = json_data
+        self.status_code = status_code
 
     def raise_for_status(self):
         pass

@@ -102,6 +102,16 @@ class SoloDuenosConnector(RealEstateConnector):
                 params=params,
                 timeout=20,
             )
+            if response.status_code in (401, 403):
+                # Diagnóstico seguro: nunca imprime la key completa, sólo
+                # largo y puntas, para poder confirmar si la extracción del
+                # bundle sacó algo truncado/incorrecto sin exponer el valor.
+                key = self._anon_key or ""
+                print(
+                    f"[soloduenos] {response.status_code} de Supabase. "
+                    f"anon_key: largo={len(key)} inicio={key[:8]!r} fin={key[-6:]!r} "
+                    f"body={response.text[:300]!r}"
+                )
             response.raise_for_status()
             batch = response.json()
             if not batch:
