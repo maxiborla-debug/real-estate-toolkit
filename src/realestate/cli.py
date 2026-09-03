@@ -129,14 +129,23 @@ def cmd_fetch_url(args: argparse.Namespace) -> None:
     estructura real de un sitio (o un bundle de JS minificado, que suele
     venir en una sola línea gigante) antes de escribir su conector.
     `--grep` busca la palabra en TODO el texto (no línea por línea) y
-    muestra un fragmento de contexto alrededor de cada ocurrencia."""
-    import requests
+    muestra un fragmento de contexto alrededor de cada ocurrencia.
+    `--browser` usa un Chromium real (Playwright) en vez de un GET simple
+    — para sitios que renderizan todo por JS o tienen un desafío anti-bot
+    básico."""
+    if args.browser:
+        from .browser import fetch_rendered_html
 
-    from .probe import REQUEST_HEADERS
+        text = fetch_rendered_html(args.url, wait_selector=args.wait_selector or None)
+        print(f"length={len(text)} (renderizado con navegador)")
+    else:
+        import requests
 
-    response = requests.get(args.url, headers=REQUEST_HEADERS, timeout=20)
-    print(f"status={response.status_code} length={len(response.content)}")
-    text = response.text
+        from .probe import REQUEST_HEADERS
+
+        response = requests.get(args.url, headers=REQUEST_HEADERS, timeout=20)
+        print(f"status={response.status_code} length={len(response.content)}")
+        text = response.text
     if args.grep:
         target = args.grep.lower()
         text_lower = text.lower()
@@ -157,11 +166,11 @@ def cmd_fetch_url(args: argparse.Namespace) -> None:
 
 
 def cmd_probe_sites(args: argparse.Namespace) -> None:
-    """GET simple a la home de cada sitio configurado como fuente, para ver
-    quién bloquea el tráfico ANTES de escribir un parser completo."""
+    """GET simple (o con --browser, Chromium real) a la home de cada sitio,
+    para ver quién bloquea el tráfico ANTES de escribir un parser completo."""
     from .probe import probe_all
 
-    for result in probe_all():
+    for result in probe_all(use_browser=args.browser):
         print(result)
 
 
@@ -213,6 +222,9 @@ def build_parser() -> argparse.ArgumentParser:
         "probe-sites",
         help="GET simple a la home de cada sitio, para ver cuáles bloquean el tráfico (no manda mail)",
     )
+    probe_parser.add_argument(
+        "--browser", action="store_true", help="Usar un Chromium real (Playwright) en vez de un GET simple"
+    )
     probe_parser.set_defaults(func=cmd_probe_sites)
 
     fetch_parser = sub.add_parser(
@@ -224,6 +236,12 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_parser.add_argument("--limit", type=int, default=40, help="Máximo de líneas a mostrar con --grep")
     fetch_parser.add_argument("--start", type=int, default=0, help="Offset de caracteres (sin --grep)")
     fetch_parser.add_argument("--length", type=int, default=3000, help="Cantidad de caracteres (sin --grep)")
+    fetch_parser.add_argument(
+        "--browser", action="store_true", help="Usar un Chromium real (Playwright) en vez de un GET simple"
+    )
+    fetch_parser.add_argument(
+        "--wait-selector", default="", help="Con --browser: esperar a que aparezca este selector CSS"
+    )
     fetch_parser.set_defaults(func=cmd_fetch_url)
 
     return parser

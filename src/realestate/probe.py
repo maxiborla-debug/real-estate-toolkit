@@ -35,11 +35,28 @@ SITES: dict[str, str] = {
 _BLOCK_MARKERS = ("access denied", "captcha", "cloudflare", "attention required", "bot detection")
 
 
-def probe_site(name: str, url: str) -> dict:
+def probe_site(name: str, url: str, use_browser: bool = False) -> dict:
+    if use_browser:
+        from .browser import fetch_rendered_html
+
+        try:
+            text = fetch_rendered_html(url)
+        except Exception as exc:  # cualquier falla de Playwright (timeout, navegación, etc.)
+            return {"source": name, "url": url, "status": None, "error": repr(exc), "mode": "browser"}
+        text_lower = text.lower()
+        return {
+            "source": name,
+            "url": url,
+            "status": 200,  # si Playwright no tiró error, la página cargó
+            "length": len(text),
+            "blocked_hint": any(marker in text_lower for marker in _BLOCK_MARKERS),
+            "mode": "browser",
+        }
+
     try:
         response = requests.get(url, headers=REQUEST_HEADERS, timeout=15)
     except requests.RequestException as exc:
-        return {"source": name, "url": url, "status": None, "error": repr(exc)}
+        return {"source": name, "url": url, "status": None, "error": repr(exc), "mode": "requests"}
 
     text_lower = response.text.lower() if response.status_code == 200 else ""
     return {
@@ -48,8 +65,9 @@ def probe_site(name: str, url: str) -> dict:
         "status": response.status_code,
         "length": len(response.content),
         "blocked_hint": any(marker in text_lower for marker in _BLOCK_MARKERS) if text_lower else None,
+        "mode": "requests",
     }
 
 
-def probe_all() -> list[dict]:
-    return [probe_site(name, url) for name, url in SITES.items()]
+def probe_all(use_browser: bool = False) -> list[dict]:
+    return [probe_site(name, url, use_browser=use_browser) for name, url in SITES.items()]
