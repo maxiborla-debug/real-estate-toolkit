@@ -32,7 +32,21 @@ SITES: dict[str, str] = {
     "lepore": "https://lepore.com.ar/",
 }
 
-_BLOCK_MARKERS = ("access denied", "captcha", "cloudflare", "attention required", "bot detection")
+# Frases específicas de una página de desafío/bloqueo real, no de un simple
+# widget de reCAPTCHA en un formulario de login (eso es normal y aparece en
+# sitios sin ningún bloqueo — "captcha" o "cloudflare" sueltos daban falsos
+# positivos: confirmado en Argenprop, cuyo único "captcha" de la página es
+# el de su popup de registro, sin relación con scraping).
+_BLOCK_MARKERS = (
+    "access denied",
+    "attention required! | cloudflare",
+    "checking your browser before accessing",
+    "verifying you are human",
+    "please wait while we verify",
+    "pardon our interruption",
+    "unusual traffic",
+    "bot detection",
+)
 
 
 def probe_site(name: str, url: str, use_browser: bool = False) -> dict:
