@@ -1,9 +1,14 @@
 name: Escaneo diario de propiedades
 
 on:
-  schedule:
-    # 17:00 hora Argentina (UTC-3, sin horario de verano) = 20:00 UTC
-    - cron: "0 20 * * *"
+  # SUSPENDIDO (a pedido explícito): el cron automático de las 17hs está
+  # comentado para que el proyecto no corra solo todos los días ni siga
+  # generando debug diario. Para reactivarlo, descomentar el bloque
+  # `schedule:` de abajo. Mientras tanto, `workflow_dispatch` sigue
+  # disponible para correrlo a mano cuando se quiera retomar.
+  # schedule:
+  #   # 17:00 hora Argentina (UTC-3, sin horario de verano) = 20:00 UTC
+  #   - cron: "0 20 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
